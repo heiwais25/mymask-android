@@ -13,10 +13,15 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.lang.Exception
 
 
 class MainActivity : AppCompatActivity() {
     private final val REQUEST_FIND_LOCATION = 1;
+    val INTENT_PROTOCOL_START = "intent:"
+    val INTENT_PROTOCOL_INTENT = "#Intent;"
+    val INTENT_PROTOCOL_END = ";end;"
+    val GOOGLE_PLAY_STORE_PREFIX = "market://details?id="
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,6 +75,37 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     return true;
+                } else if (url.startsWith("intent:") ) {
+                    val customUrlStartIndex = INTENT_PROTOCOL_START.length
+                    val customUrlEndIndex = url.indexOf(INTENT_PROTOCOL_INTENT)
+                    return if (customUrlEndIndex < 0) {
+                        false
+                    } else {
+                        val customUrl = url.substring(customUrlStartIndex, customUrlEndIndex)
+                        try {
+                            startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse(customUrl)
+                                )
+                            )
+                        } catch (e: ActivityNotFoundException) {
+                            val packageStartIndex =
+                                customUrlEndIndex + INTENT_PROTOCOL_INTENT.length
+                            val packageEndIndex = url.indexOf(INTENT_PROTOCOL_END)
+                            val packageName = url.substring(
+                                packageStartIndex,
+                                if (packageEndIndex < 0) url.length else packageEndIndex
+                            )
+                            startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse(GOOGLE_PLAY_STORE_PREFIX + packageName)
+                                )
+                            )
+                        }
+                        true
+                    }
                 }
                 return false;
             }
@@ -114,6 +150,16 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_FIND_LOCATION) {
             initWebView();
         }
+    }
+
+    private fun appInstalledOrNot(uri: String): Boolean {
+        val pm = packageManager
+        try {
+            pm.getPackageInfo(uri, PackageManager.GET_ACTIVITIES)
+            return true
+        } catch (e: PackageManager.NameNotFoundException) {
+        }
+        return false
     }
 
 }
